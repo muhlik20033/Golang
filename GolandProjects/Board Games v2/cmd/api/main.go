@@ -38,6 +38,7 @@ func main() {
 
 	//GREENLIGHT_DB_DSN = 'postgres://games:pa55word@localhost/games?sslmode=disable'
 	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("GREENLIGHT_DB_DSN"), "PostgreSQL DSN")
+
 	//flag.StringVar(&cfg.db.dsn, "db-dsn", "postgres://games:pa55word@localhost/games?sslmode=disable", "PostgreSQL DSN")
 	//flag.StringVar(&cfg.db.dsn, "db-dsn", "postgres://games:pa55word@localhost/games?sslmode=disable", "PostgreSQL DSN")
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
