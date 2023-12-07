@@ -91,6 +91,7 @@ func (app *application) updateGameHandler(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
+
 	var input struct {
 		Title    *string `json:"title"`
 		Price    *int32  `json:"price"`
@@ -103,6 +104,7 @@ func (app *application) updateGameHandler(w http.ResponseWriter, r *http.Request
 		app.badRequestResponse(w, r, err)
 		return
 	}
+
 	if input.Title != nil {
 		game.Title = *input.Title
 	}
@@ -113,19 +115,26 @@ func (app *application) updateGameHandler(w http.ResponseWriter, r *http.Request
 		game.Color = *input.Color
 	}
 	if input.Material != nil {
-		game.Material = *input.Material // Note that we don't need to dereference a slice.
+		game.Material = *input.Material
 	}
 	if input.Ages != nil {
 		game.Ages = *input.Ages
 	}
+
 	v := validator.New()
 	if data.ValidateGame(v, game); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
+
 	err = app.models.Games.Update(game)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 
@@ -134,6 +143,7 @@ func (app *application) updateGameHandler(w http.ResponseWriter, r *http.Request
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
 func (app *application) deleteGameHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
@@ -157,10 +167,9 @@ func (app *application) deleteGameHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// BODY='{"title":"Moana","year":2016,"runtime":"107 mins", "genres":["animation","adventure"]}'
-//curl.exe -i -d "{"title":"Flip Uno","price":250,"color":"Gray","material":"Laminated cardboard","ages":"+7"}" localhost:4000/v1/games
-//{"title":"Codenames","price":300,"color":"Gray","material":"Plastic", "ages":"+14"}
-//{"title":"One Piece Zoro And Sanji Starter Deck","price":280,"color":"White","material":"Laminated cardboard", "ages":"+12"}
-//'{"title":"Scout","price":210,"color":"Yellow","material":"Carbon Fiber", "ages":"+9"}'
-//$BODYFromFile = Get-Content -Path "request.json" -Raw
-//$BODY | Out-File -FilePath "request.json" -Encoding UTF8
+// BODY='{"title":"Flip Uno","price":250,"color":"Gray","material":"Laminated cardboard","ages":"+7"}'
+// BODY='{"title":"Codenames","price":300,"color":"Gray","material":"Plastic", "ages":"+14"}'
+// BODY='{"title":"One Piece Zoro And Sanji Starter Deck","price":280,"color":"White","material":"Laminated cardboard", "ages":"+12"}'
+// BODY='{"title":"Scout","price":210,"color":"Yellow","material":"Carbon Fiber", "ages":"+9"}'
+// psql "postgres://greenlight:pa55word@localhost/greenlight?sslmode=disable"
+// SELECT * FROM games;

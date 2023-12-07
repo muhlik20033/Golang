@@ -1,8 +1,10 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	_ "github.com/lib/pq"
 	"muhlik20033.bgv2.net/internal/validator"
 	"time"
 )
@@ -41,7 +43,11 @@ func (m GameModel) Insert(game *Game) error {
         VALUES ($1, $2, $3, $4, $5)
         RETURNING id, created_at, version`
 	args := []interface{}{game.Title, game.Price, game.Color, game.Material, game.Ages}
-	return m.DB.QueryRow(query, args...).Scan(&game.ID, &game.CreatedAt, &game.Version)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	return m.DB.QueryRowContext(ctx, query, args...).Scan(&game.ID, &game.CreatedAt, &game.Version)
 }
 
 func (m GameModel) Get(id int64) (*Game, error) {
@@ -52,8 +58,12 @@ func (m GameModel) Get(id int64) (*Game, error) {
 	SELECT id, created_at, title, price, color, material, ages, version
 	FROM games
 	WHERE id = $1`
+
 	var game Game
-	err := m.DB.QueryRow(query, id).Scan(
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	err := m.DB.QueryRowContext(ctx, query, id).Scan(
 		&game.ID,
 		&game.CreatedAt,
 		&game.Title,
@@ -63,6 +73,7 @@ func (m GameModel) Get(id int64) (*Game, error) {
 		&game.Ages,
 		&game.Version,
 	)
+
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -78,8 +89,9 @@ func (m GameModel) Update(game *Game) error {
 	query := `
 		UPDATE games
 		SET title = $1, price = $2, color = $3, material = $4, ages = $5, version = version + 1
-		WHERE id = $6
+		WHERE id = $6 AND version = $7
 		RETURNING version`
+
 	args := []interface{}{
 		game.Title,
 		game.Price,
@@ -87,8 +99,22 @@ func (m GameModel) Update(game *Game) error {
 		game.Material,
 		game.Ages,
 		game.ID,
+		game.Version,
 	}
-	return m.DB.QueryRow(query, args...).Scan(&game.Version)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&game.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+	return nil
 }
 
 func (m GameModel) Delete(id int64) error {
@@ -99,7 +125,10 @@ func (m GameModel) Delete(id int64) error {
 	    DELETE FROM games
 	    WHERE id = $1`
 
-	result, err := m.DB.Exec(query, id)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	result, err := m.DB.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
