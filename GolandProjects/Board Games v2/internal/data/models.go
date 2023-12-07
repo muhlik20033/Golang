@@ -10,7 +10,12 @@ var (
 )
 
 type Models struct {
-	Games GameModel
+	Games interface {
+		Insert(game *Game) error
+		Get(id int64) (*Game, error)
+		Update(game *Game) error
+		Delete(id int64) error
+	}
 }
 
 func NewModels(db *sql.DB) Models {

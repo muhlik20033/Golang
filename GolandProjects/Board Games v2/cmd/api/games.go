@@ -29,6 +29,7 @@ func (app *application) createGameHandler(w http.ResponseWriter, r *http.Request
 		Ages:     input.Ages,
 	}
 	v := validator.New()
+
 	if data.ValidateGame(v, game); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
@@ -48,6 +49,7 @@ func (app *application) createGameHandler(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
+
 }
 
 func (app *application) showGameHandler(w http.ResponseWriter, r *http.Request) {
@@ -56,16 +58,6 @@ func (app *application) showGameHandler(w http.ResponseWriter, r *http.Request) 
 		app.notFoundResponse(w, r)
 		return
 	}
-
-	// BODY='{"title":"Moana","year":2016,"runtime":"107 mins", "genres":["animation","adventure"]}'
-	//curl.exe -i -d "{"title":"Flip Uno","price":250,"color":"Gray","material":"Laminated cardboard","ages":"+7"}" localhost:4000/v1/games
-	//{"title":"Codenames","price":300,"color":"Gray","material":"Plastic", "ages":"+14"}
-	//{"title":"One Piece Zoro And Sanji Starter Deck","price":280,"color":"White","material":"Laminated cardboard", "ages":"+12"}
-	//'{"title":"Scout","price":210,"color":"Yellow","material":"Carbon Fiber", "ages":"+9"}'
-	//$BODYFromFile = Get-Content -Path "request.json" -Raw
-	//$BODY | Out-File -FilePath "request.json" -Encoding UTF8
-	//set BODY={"title":"Forbaby","brand":"mercedes","price":100,"ages":"1-3","color":"blue"}
-
 	game, err := app.models.Games.Get(id)
 	if err != nil {
 		switch {
@@ -88,6 +80,7 @@ func (app *application) updateGameHandler(w http.ResponseWriter, r *http.Request
 		app.notFoundResponse(w, r)
 		return
 	}
+	// Retrieve  movie record as normal.
 	game, err := app.models.Games.Get(id)
 	if err != nil {
 		switch {
@@ -98,26 +91,33 @@ func (app *application) updateGameHandler(w http.ResponseWriter, r *http.Request
 		}
 		return
 	}
-
-	// Declare an input struct to hold the expected data from the client.
 	var input struct {
-		Title    string `json:"title"`
-		Price    int32  `json:"price"`
-		Color    string `json:"color"`
-		Material string `json:"material"`
-		Ages     string `json:"ages"`
+		Title    *string `json:"title"`
+		Price    *int32  `json:"price"`
+		Color    *string `json:"color"`
+		Material *string `json:"material"`
+		Ages     *string `json:"ages"`
 	}
 	err = app.readJSON(w, r, &input)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	game.Title = input.Title
-	game.Price = input.Price
-	game.Color = input.Color
-	game.Material = input.Material
-	game.Ages = input.Ages
-
+	if input.Title != nil {
+		game.Title = *input.Title
+	}
+	if input.Price != nil {
+		game.Price = *input.Price
+	}
+	if input.Price != nil {
+		game.Color = *input.Color
+	}
+	if input.Material != nil {
+		game.Material = *input.Material // Note that we don't need to dereference a slice.
+	}
+	if input.Ages != nil {
+		game.Ages = *input.Ages
+	}
 	v := validator.New()
 	if data.ValidateGame(v, game); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
@@ -128,19 +128,19 @@ func (app *application) updateGameHandler(w http.ResponseWriter, r *http.Request
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-	// Write the updated movie record in a JSON response.
+
 	err = app.writeJSON(w, http.StatusOK, envelope{"game": game}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
 }
-
 func (app *application) deleteGameHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
 		app.notFoundResponse(w, r)
 		return
 	}
+
 	err = app.models.Games.Delete(id)
 	if err != nil {
 		switch {
@@ -156,3 +156,11 @@ func (app *application) deleteGameHandler(w http.ResponseWriter, r *http.Request
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+// BODY='{"title":"Moana","year":2016,"runtime":"107 mins", "genres":["animation","adventure"]}'
+//curl.exe -i -d "{"title":"Flip Uno","price":250,"color":"Gray","material":"Laminated cardboard","ages":"+7"}" localhost:4000/v1/games
+//{"title":"Codenames","price":300,"color":"Gray","material":"Plastic", "ages":"+14"}
+//{"title":"One Piece Zoro And Sanji Starter Deck","price":280,"color":"White","material":"Laminated cardboard", "ages":"+12"}
+//'{"title":"Scout","price":210,"color":"Yellow","material":"Carbon Fiber", "ages":"+9"}'
+//$BODYFromFile = Get-Content -Path "request.json" -Raw
+//$BODY | Out-File -FilePath "request.json" -Encoding UTF8

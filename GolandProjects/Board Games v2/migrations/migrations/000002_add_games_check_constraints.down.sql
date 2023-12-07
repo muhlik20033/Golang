@@ -1,0 +1,3 @@
+ALTER TABLE games DROP CONSTRAINT IF EXISTS games_price_check;
+ALTER TABLE games DROP CONSTRAINT IF EXISTS title_color_check;
+ALTER TABLE games DROP CONSTRAINT IF EXISTS ages_length_check;
