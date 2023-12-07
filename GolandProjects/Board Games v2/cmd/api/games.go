@@ -167,6 +167,41 @@ func (app *application) deleteGameHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+func (app *application) listGamesHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Title string
+		Color string
+		data.Filters
+	}
+	v := validator.New()
+	qs := r.URL.Query()
+
+	input.Title = app.readString(qs, "title", "")
+	input.Color = app.readString(qs, "color", "")
+
+	input.Filters.Page = app.readInt(qs, "page", 1, v)
+	input.Filters.PageSize = app.readInt(qs, "page_size", 20, v)
+
+	input.Filters.Sort = app.readString(qs, "sort", "id")
+	input.Filters.SortSafelist = []string{"id", "title", "color", "-id", "-title", "-color"}
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	games, metadata, err := app.models.Games.GetAll(input.Title, input.Color, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"games": games, "metadata": metadata}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
 // BODY='{"title":"Flip Uno","price":250,"color":"Gray","material":"Laminated cardboard","ages":"+7"}'
 // BODY='{"title":"Codenames","price":300,"color":"Gray","material":"Plastic", "ages":"+14"}'
 // BODY='{"title":"One Piece Zoro And Sanji Starter Deck","price":280,"color":"White","material":"Laminated cardboard", "ages":"+12"}'

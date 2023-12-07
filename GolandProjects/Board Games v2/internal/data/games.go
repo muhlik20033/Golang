@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	_ "github.com/lib/pq"
 	"muhlik20033.bgv2.net/internal/validator"
 	"time"
@@ -140,4 +141,57 @@ func (m GameModel) Delete(id int64) error {
 		return ErrRecordNotFound
 	}
 	return nil
+}
+
+func (m GameModel) GetAll(title string, color string, filters Filters) ([]*Game, Metadata, error) {
+	query := fmt.Sprintf(`
+        SELECT count(*) OVER(), id, created_at, title, price, color, material, ages, version
+        FROM games
+        WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
+        AND  (to_tsvector('simple', color) @@ plainto_tsquery('simple', $2) OR $2 = '')
+        ORDER BY %s %s, id ASC
+        LIMIT $3 OFFSET $4`, filters.sortColumn(), filters.sortDirection())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	args := []interface{}{title, color, filters.limit(), filters.offset()}
+
+	rows, err := m.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+
+	defer rows.Close()
+
+	totalRecords := 0
+	games := []*Game{}
+
+	for rows.Next() {
+		var game Game
+
+		err := rows.Scan(
+			&totalRecords,
+			&game.ID,
+			&game.CreatedAt,
+			&game.Title,
+			&game.Price,
+			&game.Color,
+			&game.Material,
+			&game.Ages,
+			&game.Version,
+		)
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+
+		games = append(games, &game)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+	return games, metadata, nil
 }

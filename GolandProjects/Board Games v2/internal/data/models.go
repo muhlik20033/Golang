@@ -16,6 +16,7 @@ type Models struct {
 		Get(id int64) (*Game, error)
 		Update(game *Game) error
 		Delete(id int64) error
+		GetAll(title string, color string, filters Filters) ([]*Game, Metadata, error)
 	}
 }
 
