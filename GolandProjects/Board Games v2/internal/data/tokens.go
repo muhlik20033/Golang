@@ -12,7 +12,7 @@ import (
 
 const (
 	ScopeActivation     = "activation"
-	ScopeAuthentication = "authentication" // Include a new authentication scope.
+	ScopeAuthentication = "authentication"
 )
 
 type Token struct {
@@ -23,23 +23,8 @@ type Token struct {
 	Scope     string    `json:"-"`
 }
 
-var AnonymousUser = &User{}
-
-type user struct {
-	ID        int64     `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	Password  password  `json:"-"`
-	Activated bool      `json:"activated"`
-	Version   int       `json:"-"`
-}
-
-func (u *User) IsAnonymous() bool {
-	return u == AnonymousUser
-}
-
 func generateToken(userID int64, ttl time.Duration, scope string) (*Token, error) {
+
 	token := &Token{
 		UserID: userID,
 		Expiry: time.Now().Add(ttl),
@@ -47,12 +32,14 @@ func generateToken(userID int64, ttl time.Duration, scope string) (*Token, error
 	}
 
 	randomBytes := make([]byte, 16)
+
 	_, err := rand.Read(randomBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	token.Plaintext = base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(randomBytes)
+
 	hash := sha256.Sum256([]byte(token.Plaintext))
 	token.Hash = hash[:]
 	return token, nil
@@ -78,8 +65,8 @@ func (m TokenModel) New(userID int64, ttl time.Duration, scope string) (*Token, 
 
 func (m TokenModel) Insert(token *Token) error {
 	query := `
-INSERT INTO tokens (hash, user_id, expiry, scope)
-VALUES ($1, $2, $3, $4)`
+		INSERT INTO tokens (hash, user_id, expiry, scope)
+		VALUES ($1, $2, $3, $4)`
 	args := []interface{}{token.Hash, token.UserID, token.Expiry, token.Scope}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -89,8 +76,8 @@ VALUES ($1, $2, $3, $4)`
 
 func (m TokenModel) DeleteAllForUser(scope string, userID int64) error {
 	query := `
-DELETE FROM tokens
-WHERE scope = $1 AND user_id = $2`
+		DELETE FROM tokens
+		WHERE scope = $1 AND user_id = $2`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_, err := m.DB.ExecContext(ctx, query, scope, userID)
